@@ -23,6 +23,7 @@ class JetImageData {
 		
 		unsigned dataID_;
 		unsigned timeout_;
+		std::string inputTensorName_;
 		tensorflow::serving::PredictionService::Stub* stub_;
 		tensorflow::TensorProto proto_;
 		tensorflow::Tensor* output_;

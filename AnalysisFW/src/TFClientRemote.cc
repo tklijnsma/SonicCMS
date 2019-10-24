@@ -21,13 +21,15 @@ using tensorflow::serving::PredictionService;
 
 typedef google::protobuf::Map<std::string, tensorflow::TensorProto> protomap;
 
+
 JetImageData::JetImageData() :
 	dataID_(0),
 	timeout_(0),
 	stub_(nullptr),
 	output_(nullptr),
 	hasCall_(false),
-	stop_(false)
+	stop_(false),
+	inputTensorName_("Placeholder:0")
 {
 	thread_ = std::make_unique<std::thread>([this](){ waitForNext(); });
 }
@@ -60,9 +62,9 @@ void JetImageData::waitForNext(){
 			ClientContext context;
 			CompletionQueue cq;
 
-			//setup input
+			//setup input. inputTensorName is model-specific!
 			protomap& inputs = *request.mutable_inputs();
-			inputs["images"] = proto_;
+			inputs[inputTensorName_] = proto_;
 
 			//setup timeout
 			auto t1 = std::chrono::high_resolution_clock::now();
@@ -87,10 +89,31 @@ void JetImageData::waitForNext(){
 			//check result
 			std::exception_ptr exceptionPtr;
 			if(ok and status.ok() and tag==(void*)(dataID_+1)){
-				protomap& outputs = *response.mutable_outputs();
-				output_->FromProto(outputs["output_alias"]);
-				std::stringstream msg;
 				edm::LogInfo("TFClientRemote") << "Classifier Status: Ok\n";
+
+				// Pairs of std::string, tensorflow::TensorProto&
+				protomap& outputs = *response.mutable_outputs();
+
+				// One image per inference, so just get the first pair
+				tensorflow::TensorProto& result_tensor_proto = outputs.begin()->second;
+				std::string result_string = outputs.begin()->first;
+
+				// Try to convert tensorflow::TensorProto to tensorflow::Tensor
+				bool converted = output_->FromProto(result_tensor_proto);
+				if (converted) {
+					edm::LogInfo("TFClientRemote")
+						<< "Convert succeeded."
+						<< "\nscores: "
+						<< output_->SummarizeValue(10)
+						<< "\nstring: "
+						<< result_string;
+					}
+				else {
+					edm::LogInfo("TFClientRemote")
+						<< "Convert failed.\n"
+						<< "outputs size is "
+						<< response.outputs_size();
+					}
 			}
 			else{
 				edm::LogInfo("TFClientRemote") << "gRPC call return code: " << status.error_code() << ", msg: " << status.error_message();
@@ -116,6 +139,7 @@ TFClientRemote::TFClientRemote(unsigned numStreams, const std::string& address, 
 void TFClientRemote::predict(unsigned dataID, const tensorflow::Tensor* img, tensorflow::Tensor* result, edm::WaitingTaskWithArenaHolder holder) {
 	//get cache
 	auto& streamData = streamData_.at(dataID);
+
 
 	//do all read/writes inside lock to ensure cache synchronization
 	{
