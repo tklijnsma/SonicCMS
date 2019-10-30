@@ -25,11 +25,11 @@ typedef google::protobuf::Map<std::string, tensorflow::TensorProto> protomap;
 JetImageData::JetImageData() :
 	dataID_(0),
 	timeout_(0),
+    inputTensorName_("Placeholder:0"),
 	stub_(nullptr),
 	output_(nullptr),
 	hasCall_(false),
-	stop_(false),
-	inputTensorName_("Placeholder:0")
+	stop_(false)
 {
 	thread_ = std::make_unique<std::thread>([this](){ waitForNext(); });
 }
