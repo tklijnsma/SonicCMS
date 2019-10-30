@@ -4,6 +4,7 @@ import FWCore.ParameterSet.Config as cms
 import os, sys, json
 
 options = VarParsing("analysis")
+options.register("datafile", None, VarParsing.multiplicity.singleton, VarParsing.varType.string)
 options.register("address", "", VarParsing.multiplicity.singleton, VarParsing.varType.string)
 options.register("port", -1, VarParsing.multiplicity.singleton, VarParsing.varType.int)
 options.register("timeout", 30, VarParsing.multiplicity.singleton, VarParsing.varType.int)
@@ -25,8 +26,10 @@ process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
 process.GlobalTag.globaltag = cms.string('100X_upgrade2018_realistic_v10')
 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(options.maxEvents) )
+
+if not options.datafile: raise TypeError('Pass datafile= option to .root file containing the jets')
 process.source = cms.Source("PoolSource",
-    fileNames = cms.untracked.vstring('file:data/store_mc_RunIISpring18MiniAOD_BulkGravTohhTohbbhbb_narrow_M-2000_13TeV-madgraph_MINIAODSIM_100X_upgrade2018_realistic_v10-v1_30000_24A0230C-B530-E811-ADE3-14187741120B.root')
+    fileNames = cms.untracked.vstring('file:{0}'.format(options.datafile))
 )
 
 if len(options.inputFiles)>0: process.source.fileNames = options.inputFiles
