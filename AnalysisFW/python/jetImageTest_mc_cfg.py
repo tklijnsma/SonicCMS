@@ -4,7 +4,6 @@ import FWCore.ParameterSet.Config as cms
 import os, sys, json
 
 options = VarParsing("analysis")
-options.register("remote", False, VarParsing.multiplicity.singleton, VarParsing.varType.bool)
 options.register("address", "", VarParsing.multiplicity.singleton, VarParsing.varType.string)
 options.register("port", -1, VarParsing.multiplicity.singleton, VarParsing.varType.int)
 options.register("timeout", 30, VarParsing.multiplicity.singleton, VarParsing.varType.int)
@@ -12,13 +11,6 @@ options.register("params", "", VarParsing.multiplicity.singleton, VarParsing.var
 options.register("threads", 1, VarParsing.multiplicity.singleton, VarParsing.varType.int)
 options.register("streams", 0, VarParsing.multiplicity.singleton, VarParsing.varType.int)
 options.parseArguments()
-
-if len(options.params)>0 and options.remote:
-    with open(options.params,'r') as pfile:
-        pdict = json.load(pfile)
-    options.address = pdict["address"]
-    options.port = int(pdict["port"])
-    print("server = "+options.address+":"+str(options.port))
 
 process = cms.Process('imageTest')
 
@@ -46,19 +38,13 @@ process.jetImageProducer = cms.EDProducer('JetImageProducer',
     imageList = cms.string("imagenet_classes.txt"),
 )
 
-if options.remote:
-    process.jetImageProducer.remote = cms.bool(True)
-    process.jetImageProducer.ExtraParams = cms.PSet(
-        address = cms.string(options.address),
-        port = cms.int32(options.port),
-        timeout = cms.uint32(options.timeout),
-    )
-else:
-    process.jetImageProducer.remote = cms.bool(False)
-    process.jetImageProducer.ExtraParams = cms.PSet(
-        featurizer = cms.string("resnet50.pb"),
-        classifier = cms.string("resnet50_classifier.pb"),
-    )
+# Always remote
+process.jetImageProducer.remote = cms.bool(True)
+process.jetImageProducer.ExtraParams = cms.PSet(
+    address = cms.string(options.address),
+    port = cms.int32(options.port),
+    timeout = cms.uint32(options.timeout),
+)
 
 # Let it run
 process.p = cms.Path(
