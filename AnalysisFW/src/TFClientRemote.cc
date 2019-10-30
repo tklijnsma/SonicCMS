@@ -1,6 +1,7 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "SonicCMS/AnalysisFW/interface/TFClientRemote.h"
 
+#include <fstream>
 #include <sstream>
 #include <chrono>
 #include <thread>
@@ -25,7 +26,7 @@ typedef google::protobuf::Map<std::string, tensorflow::TensorProto> protomap;
 JetImageData::JetImageData() :
 	dataID_(0),
 	timeout_(0),
-    inputTensorName_("Placeholder:0"),
+	inputTensorName_("Placeholder:0"),
 	stub_(nullptr),
 	output_(nullptr),
 	hasCall_(false),
@@ -46,6 +47,25 @@ JetImageData::~JetImageData() {
 	}
 }
 
+
+bool fileExists(std::string fileName){
+	std::ifstream infile(fileName);
+	return infile.good();
+	}
+
+std::string fullFileName(std::string fileName, int iSuffix){
+	return fileName + "_" + std::to_string(iSuffix) + ".txt";
+	}
+
+std::string createUniqueFileName(std::string fileName){
+	int iSuffix = 0;
+	while(fileExists(fullFileName(fileName, iSuffix))){
+		iSuffix++;
+		}
+	return fullFileName(fileName, iSuffix);
+	}
+
+
 void JetImageData::waitForNext(){
 	while(true){
 		//wait for condition
@@ -55,6 +75,10 @@ void JetImageData::waitForNext(){
 			if(stop_) break;
 
 			//do everything inside lock
+
+			// Create an output file
+			std::ofstream outFile;
+			outFile.open(createUniqueFileName("output"), std::ios_base::app);
 
 			//items for grpc request
 			PredictRequest request;
@@ -85,7 +109,8 @@ void JetImageData::waitForNext(){
 
 			auto t2 = std::chrono::high_resolution_clock::now();
 			edm::LogInfo("TFClientRemote") << "Remote time: " << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-		
+			outFile << "Remote time: " << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() << " microseconds\n";
+
 			//check result
 			std::exception_ptr exceptionPtr;
 			if(ok and status.ok() and tag==(void*)(dataID_+1)){
@@ -107,12 +132,24 @@ void JetImageData::waitForNext(){
 						<< output_->SummarizeValue(10)
 						<< "\nstring: "
 						<< result_string;
+					outFile
+						<< "Convert succeeded."
+						<< "\nscores: "
+						<< output_->SummarizeValue(10)
+						<< "\nstring: "
+						<< result_string
+						<< "\n";
 					}
 				else {
 					edm::LogInfo("TFClientRemote")
 						<< "Convert failed.\n"
 						<< "outputs size is "
 						<< response.outputs_size();
+					outFile
+						<< "Convert failed.\n"
+						<< "outputs size is "
+						<< response.outputs_size()
+						<< "\n";
 					}
 			}
 			else{
