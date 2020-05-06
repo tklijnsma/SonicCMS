@@ -4,6 +4,7 @@
 #include <vector>
 #include <cmath>
 #include <map>
+#include <chrono>
 
 #include "SonicCMS/Core/interface/SonicEDProducer.h"
 #include "SonicCMS/Brainwave/interface/TFClientRemote.h"
@@ -36,22 +37,40 @@ class JetImageProducer : public SonicEDProducer<Client>
 			JetTok_(this->template consumes<edm::View<pat::Jet>>(JetTag_)),
 			topN_(cfg.getParameter<unsigned>("topN")),
 			imageListFile_(cfg.getParameter<std::string>("imageList"))
-		{
-			//for debugging
-			this->setDebugName("JetImageProducer");
-			//load score list
-			std::ifstream ifile(imageListFile_);
-			if(ifile.is_open()){
-				std::string line;
-				while(std::getline(ifile,line)){
-					imageList_.push_back(line);
+			{
+				//for debugging
+				this->setDebugName("JetImageProducer");
+				//load score list
+				std::ifstream ifile(imageListFile_);
+				if(ifile.is_open()){
+					std::string line;
+					while(std::getline(ifile,line)){
+						imageList_.push_back(line);
+					}
 				}
+				else {
+					throw cms::Exception("MissingInputFile") << "Could not open image list: " << imageListFile_;
+				}
+				}
+
+		struct Inference {
+			long int start_acquire;
+			long int end_acquire;
+			long int start_produce;
+			long int end_produce;
+			};
+		Inference inference_;
+
+		long int timeSinceEpoch(){
+			return std::chrono::duration_cast<std::chrono::milliseconds>(
+				std::chrono::high_resolution_clock::now().time_since_epoch()
+				).count();
 			}
-			else {
-				throw cms::Exception("MissingInputFile") << "Could not open image list: " << imageListFile_;
-			}
-		}
+
 		void acquire(edm::Event const& iEvent, edm::EventSetup const& iSetup, Input& iInput) override {
+			inference_ = Inference();
+			inference_.start_acquire = timeSinceEpoch();
+
 			edm::Handle<edm::View<pat::Jet>> h_jets;
 			iEvent.getByToken(JetTok_, h_jets);
 			const auto& jets = *h_jets.product();
@@ -105,11 +124,14 @@ class JetImageProducer : public SonicEDProducer<Client>
 					input_map(0,itf,jtf,1) = image2D[itf][jtf];
 					input_map(0,itf,jtf,2) = image2D[itf][jtf];
 				}
+			inference_.end_acquire = timeSinceEpoch();
 			}
 		}
 		void produce(edm::Event& iEvent, edm::EventSetup const& iSetup, Output const& iOutput) override {
+			inference_.start_produce = timeSinceEpoch();
 			//check the results
 			findTopN(iOutput);
+			inference_.end_produce = timeSinceEpoch();
 		}
 
 		//to ensure distinct cfi names - specialized below
