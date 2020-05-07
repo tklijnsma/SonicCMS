@@ -36,7 +36,8 @@ class JetImageProducer : public SonicEDProducer<Client>
 			JetTag_(cfg.getParameter<edm::InputTag>("JetTag")),
 			JetTok_(this->template consumes<edm::View<pat::Jet>>(JetTag_)),
 			topN_(cfg.getParameter<unsigned>("topN")),
-			imageListFile_(cfg.getParameter<std::string>("imageList"))
+			imageListFile_(cfg.getParameter<std::string>("imageList")),
+			outfile(cfg.getParameter<std::string>("outFile"))
 			{
 				//for debugging
 				this->setDebugName("JetImageProducer");
@@ -58,11 +59,13 @@ class JetImageProducer : public SonicEDProducer<Client>
 			long int end_acquire;
 			long int start_produce;
 			long int end_produce;
+			std::string type;
+			float probability;
 			};
 		Inference inference_;
 
 		long int timeSinceEpoch(){
-			return std::chrono::duration_cast<std::chrono::milliseconds>(
+			return std::chrono::duration_cast<std::chrono::microseconds>(
 				std::chrono::high_resolution_clock::now().time_since_epoch()
 				).count();
 			}
@@ -132,6 +135,15 @@ class JetImageProducer : public SonicEDProducer<Client>
 			//check the results
 			findTopN(iOutput);
 			inference_.end_produce = timeSinceEpoch();
+			outfile
+				<< inference_.start_acquire << ","
+				<< inference_.end_acquire   << ","
+				<< inference_.start_produce << ","
+				<< inference_.end_produce   << ","
+				<< inference_.type          << ","
+				<< inference_.probability   
+				<< std::endl
+				;
 		}
 
 		//to ensure distinct cfi names - specialized below
@@ -142,11 +154,12 @@ class JetImageProducer : public SonicEDProducer<Client>
 			desc.add<edm::InputTag>("JetTag",edm::InputTag("slimmedJetsAK8"));
 			desc.add<unsigned>("topN",5);
 			desc.add<std::string>("imageList");
+			desc.add<std::string>("outFile");
 			descriptions.add(getCfiName(),desc);
 		}
 
 	private:
-		void findTopN(const tensorflow::Tensor& scores) const {
+		void findTopN(const tensorflow::Tensor& scores) {
 			auto score_list = scores.flat<float>();
 			auto dim = score_list.dimensions()[0];
 
@@ -162,6 +175,10 @@ class JetImageProducer : public SonicEDProducer<Client>
 			unsigned counter = 0;
 			for(const auto& item: score_map){
 				msg << item.second << " : " << item.first << "\n";
+				if (counter == 0){
+					inference_.type = item.second;
+					inference_.probability = item.first;
+					}
 				++counter;
 				if(counter>=topN_) break;
 			}
@@ -173,6 +190,8 @@ class JetImageProducer : public SonicEDProducer<Client>
 		unsigned topN_;
 		std::string imageListFile_;
 		std::vector<std::string> imageList_;
+		std::ofstream outfile;
+
 };
 
 typedef JetImageProducer<TFClientRemote> JetImageProducerRemote;
