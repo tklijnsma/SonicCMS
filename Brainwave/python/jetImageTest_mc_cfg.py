@@ -11,7 +11,7 @@ options.register("timeout", 30, VarParsing.multiplicity.singleton, VarParsing.va
 options.register("params", "", VarParsing.multiplicity.singleton, VarParsing.varType.string)
 options.register("threads", 1, VarParsing.multiplicity.singleton, VarParsing.varType.int)
 options.register("streams", 0, VarParsing.multiplicity.singleton, VarParsing.varType.int)
-options.outputFile = 'output.txt'
+options.register("txtFile", "output.txt", VarParsing.multiplicity.singleton, VarParsing.varType.string)
 options.inputFiles = 'file:../../Core/data/store_mc_RunIISpring18MiniAOD_BulkGravTohhTohbbhbb_narrow_M-2000_13TeV-madgraph_MINIAODSIM_100X_upgrade2018_realistic_v10-v1_30000_24A0230C-B530-E811-ADE3-14187741120B.root',
 options.parseArguments()
 
@@ -62,7 +62,7 @@ process.jetImageProducer = cms.EDProducer(prodname,
     topN = cms.uint32(5),
     imageList = cms.string("top_classes.txt"),
     Client = Client,
-    outFile = cms.string(options.outputFile)
+    txtFile = cms.string(options.txtFile)
 )
 
 # Let it run

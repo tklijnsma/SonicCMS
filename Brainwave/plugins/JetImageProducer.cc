@@ -37,7 +37,7 @@ class JetImageProducer : public SonicEDProducer<Client>
 			JetTok_(this->template consumes<edm::View<pat::Jet>>(JetTag_)),
 			topN_(cfg.getParameter<unsigned>("topN")),
 			imageListFile_(cfg.getParameter<std::string>("imageList")),
-			outfile(cfg.getParameter<std::string>("outFile"))
+			outfile(cfg.getParameter<std::string>("txtFile"))
 			{
 				//for debugging
 				this->setDebugName("JetImageProducer");
@@ -154,7 +154,7 @@ class JetImageProducer : public SonicEDProducer<Client>
 			desc.add<edm::InputTag>("JetTag",edm::InputTag("slimmedJetsAK8"));
 			desc.add<unsigned>("topN",5);
 			desc.add<std::string>("imageList");
-			desc.add<std::string>("outFile");
+			desc.add<std::string>("txtFile");
 			descriptions.add(getCfiName(),desc);
 		}
 
